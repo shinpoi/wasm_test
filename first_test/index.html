@@ -1,0 +1,28 @@
+<body>
+	<canvas id="cv" width="300" height="300"  style="border:1px solid black;"></canvas>
+	<img id="img" src="images/2x2_red_white.png" style="display: none;"></img>
+<button onclick="bt()">button!</button>
+
+<script src="test.js"></script>
+<script>
+function bt(){
+	img = document.getElementById("img");
+	cv = document.getElementById("cv");
+	ctx = cv.getContext("2d");
+	ctx.drawImage(img, 0, 0);
+	data = ctx.getImageData(0, 0, 2, 2);
+	len = data.width*data.height*4; 
+	buffer = new Uint8Array(Module.wasmMemory.buffer, 0, len);
+	buffer.set(data.data);
+	
+	// input data
+	console.log(data.data);
+	_testWASM(buffer, len);
+	
+	// output data
+	data.data.set(buffer);
+	console.log(data.data);
+}
+</script>
+
+</body>
