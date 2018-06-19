@@ -1,27 +1,89 @@
-<body>
-	<canvas id="cv" width="300" height="300"  style="border:1px solid black;"></canvas>
-	<img id="img" src="images/2x2_red_white.png" style="display: none;"></img>
-<button onclick="bt()">button!</button>
+<head>
+	<style>
+		img{
+			max-width: 720px;
+			max-height: 720px;
+			border: 1px solid black;
+			margin: 0.5em;
+		}
+	</style>
+</head>
 
-<script src="test.js"></script>
+<body>
+	<input id="input_src" Xdraw="src_img" type="file" accept="image/*" /><br/>
+	<img id="src_img" src=""></img><br/>
+
+	<img id="res_img" src=""></img><br/>
+
+	<input id="input_ref" Xdraw="ref_img" type="file" accept="image/*" /><br/>
+	<img id="ref_img" src=""></img><br/>
+	
+	<button onclick="colorMatch()">button!</button>
+
+<script type="text/javaScript">
+	var input_src = document.getElementById("input_src");
+	var input_ref = document.getElementById("input_ref");
+
+	input_src.addEventListener('change', readFile, false);
+	input_ref.addEventListener('change', readFile, false);
+
+	function readFile(){
+		var file = this.files[0];
+		if (!/image\/[a-zA-Z]+/.test(file.type)){
+			alert("Please upload a Image!");
+			//return false;
+		}
+		var reader = new FileReader();
+		reader.readAsDataURL(file);
+		var Xdraw = this.getAttribute('Xdraw'); 
+		reader.onload = function(e){
+			displayAsImage(this.result, Xdraw);
+		}
+	}
+
+	function displayAsImage(data, id_){
+		document.getElementById(id_).src = data;
+	}
+
+</script>
+<script type="text/javaScript" src="test.js"></script>
 <script>
-function bt(){
-	img = document.getElementById("img");
-	cv = document.getElementById("cv");
-	ctx = cv.getContext("2d");
-	ctx.drawImage(img, 0, 0);
-	data = ctx.getImageData(0, 0, 2, 2);
-	len = data.width*data.height*4; 
+function colorMatch(){
+	// get ImgElement
+	src_img_or = document.getElementById("src_img");
+	ref_img_or = document.getElementById("ref_img");
+	
+	// to origin-size Image
+	var src_img = new Image;
+	var ref_img = new Image;
+	src_img.src = src_img_or.src;
+	ref_img.src = ref_img_or.src;
+	
+	// draw img to canvas
+	src_cv = document.createElement('canvas');
+	src_cv.width = src_img.width;
+	src_cv.height = src_img.height;
+	src_ctx = src_cv.getContext('2d');
+	src_ctx.drawImage(src_img, 0, 0);
+
+	ref_cv = document.createElement('canvas');
+	ref_ctx = ref_cv.getContext('2d');
+	ref_ctx.drawImage(ref_img, 0, 0);
+	
+	// send to wasm
+	data = src_ctx.getImageData(0, 0, src_img.width, src_img.height);
+	len = data.width*data.height*4;
 	buffer = new Uint8Array(Module.wasmMemory.buffer, 0, len);
 	buffer.set(data.data);
 	
 	// input data
-	console.log(data.data);
 	_testWASM(buffer, len);
 	
 	// output data
 	data.data.set(buffer);
-	console.log(data.data);
+	src_ctx.putImageData(data, 0, 0);
+	dataURL = src_cv.toDataURL('image/png');
+	document.getElementById('res_img').src = dataURL;
 }
 </script>
 
