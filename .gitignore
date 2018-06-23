@@ -1,0 +1,16 @@
+*.a
+*.s
+*.wast
+*.wasm
+*.swp
+*.js
+
+*.tar
+*.zip
+*.gz
+
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
