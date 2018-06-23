@@ -1,4 +1,4 @@
-//emcc test.c -std=c11 -Os -o test.js -s EXPORTED_FUNCTIONS='["_histMatch", "_cr_buffer", "_fr_buffer"]' -s ALLOW_MEMORY_GROWTH=1
+//emcc filter.c -std=c11 -Os -o test.js -s EXPORTED_FUNCTIONS='["_histMatch", "_cr_buffer", "_fr_buffer"]' -s ALLOW_MEMORY_GROWTH=1
 
 #include<stdint.h>
 #include<stdlib.h>
