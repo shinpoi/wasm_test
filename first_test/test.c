@@ -1,33 +1,21 @@
-#include <stdlib.h>
-#include <emscripten.h>
+//emcc test.c -std=c11 -Os -o test.js -s EXPORTED_FUNCTIONS='["_histMatch", "_cr_buffer", "_fr_buffer"]' -s ALLOW_MEMORY_GROWTH=1
 
-void histMap(unsigned char* buffer, unsigned int len, double* histMap_R, double* histMap_G, double* histMap_B);
-void matchMap(double* histMap_src, double* histMap_ref, unsigned char* map);
+#include<stdint.h>
+#include<stdlib.h>
+
+void histMap(uint8_t* buffer, unsigned int len, double* histMap_R, double* histMap_G, double* histMap_B);
+void matchMap(double* histMap_src, double* histMap_ref, uint8_t* map);
 double sum(double* array, unsigned int len);
 
-/*
-EMSCRIPTEN_KEEPALIVE
-void testWASM(unsigned char* buffer, unsigned int len){
-	for (int i=0; i<len; i=i+4){
-		buffer[i] = 255 - buffer[i];
-		buffer[i+1] = 255 - buffer[i+1];
-		buffer[i+2] = 255 - buffer[i+2];
-	}
-}
-*/
-
-EMSCRIPTEN_KEEPALIVE
-unsigned char* create_buffer(unsigned int w, unsigned int h) {
-	return malloc(w * h * 4 * sizeof(unsigned char));
+unsigned char* cr_buffer(unsigned int size) {
+	return malloc(size);
 }
 
-EMSCRIPTEN_KEEPALIVE
-void destory_buffer(unsigned char* p) {
+void fr_buffer(unsigned char* p) {
 	free(p);
 }
 
-EMSCRIPTEN_KEEPALIVE
-void histMatch(unsigned char* buffer_src, unsigned char* buffer_ref, unsigned int len_src, unsigned int len_ref) {
+void histMatch(uint8_t* buffer_src, uint8_t* buffer_ref, unsigned int len_src, unsigned int len_ref) {
 	double src_histMap_R[256] = {0};
 	double src_histMap_G[256] = {0};
 	double src_histMap_B[256] = {0};
@@ -38,9 +26,9 @@ void histMatch(unsigned char* buffer_src, unsigned char* buffer_ref, unsigned in
 	histMap(buffer_src, len_src, src_histMap_R, src_histMap_G, src_histMap_B);
 	histMap(buffer_ref, len_ref, ref_histMap_R, ref_histMap_G, ref_histMap_B);
 
-	unsigned char map_R[256] = {0};
-	unsigned char map_G[256] = {0};
-	unsigned char map_B[256] = {0};
+	uint8_t map_R[256] = {0};
+	uint8_t map_G[256] = {0};
+	uint8_t map_B[256] = {0};
 
 	matchMap(src_histMap_R, ref_histMap_R, map_R);
 	matchMap(src_histMap_G, ref_histMap_G, map_G);
@@ -55,16 +43,16 @@ void histMatch(unsigned char* buffer_src, unsigned char* buffer_ref, unsigned in
 
 
 // double hist_R/G/B[256] = {0}
-void histMap(unsigned char* buffer, unsigned int len, double* histMap_R, double* histMap_G, double* histMap_B) {
+void histMap(uint8_t* buffer, unsigned int len, double* histMap_R, double* histMap_G, double* histMap_B) {
 	double hist_R[256] = {0};
 	double hist_G[256] = {0};
 	double hist_B[256] = {0};
 		
 	for(int i=0; i<len; i+=4) {
 		if (buffer[i+3]){
-			hist_R[buffer[i]]++;
-			hist_G[buffer[i+1]]++;
-			hist_B[buffer[i+2]]++;
+			hist_R[buffer[i]] += 1;
+			hist_G[buffer[i+1]] += 1;
+			hist_B[buffer[i+2]] += 1;
 		}
 	}
 
@@ -90,13 +78,18 @@ void histMap(unsigned char* buffer, unsigned int len, double* histMap_R, double*
 }
 
 // unsigned int map[256] = {0}
-void matchMap(double* histMap_src, double* histMap_ref, unsigned char* map) {
+void matchMap(double* histMap_src, double* histMap_ref, uint8_t* map) {
 	for (int i=0; i<256; i++){
-		double min_diff = 1;
+		double min_diff = 2;
 		double diff = 0;
-		for (int j=0; j<256; j++) {
-			diff = histMap_src[i] - histMap_ref[j];
-			diff = (diff > 0)?diff:-diff;
+		for (int j=map[i-1]; j<256; j++) {
+			if (diff == histMap_src[i] - histMap_ref[j]) {
+				continue;
+			} else {
+				diff = histMap_src[i] - histMap_ref[j];
+				diff = (diff > 0)?diff:-diff;
+			}
+
 			if (diff < min_diff) {
 				min_diff = diff;
 				map[i] = j;

@@ -1,4 +1,8 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
 <head>
+	<meta content="text/html" charset="UTF-8">
+	<script type="text/javaScript" src="test.js"></script>
 	<style>
 		img{
 			max-width: 720px;
@@ -6,19 +10,33 @@
 			border: 1px solid black;
 			margin: 0.5em;
 		}
+		button{
+			font-size: 1.5em;
+		}
+		input{
+			font-size: 1em;
+		}
+
+		.Lsize{
+			font-size: 1.5em;
+		}
 	</style>
 </head>
 
 <body>
-	<input id="input_src" Xdraw="src_img" type="file" accept="image/*" />Srcouce File<br/>
+	<!-- Info -->
+
+	<!-- Tools -->
+	<div class="Lsize">Source Image:　<input id="input_src" Xdraw="src_img" type="file" accept="image/*"></div><br/>
 	<img id="src_img" src=""></img><br/>
-
 	<img id="res_img" src=""></img><br/>
-
-	<input id="input_ref" Xdraw="ref_img" type="file" accept="image/*" />Referrence File<br/>
-	<img id="ref_img" src=""></img><br/>
 	
-	<button onclick="colorMatch()">button!</button>
+	<div class="Lsize">Referrence Image:　<input id="input_ref" Xdraw="ref_img" type="file" accept="image/*" /></div><br/>
+	<img id="ref_img" src=""></img><br/>
+	<button onclick="colorMatch()">　Render　</button>
+
+	<!-- example -->
+
 
 <script type="text/javaScript">
 	var input_src = document.getElementById("input_src");
@@ -48,58 +66,77 @@
 	}
 
 </script>
-<script type="text/javaScript" src="test.js"></script>
 <script>
-var mem = new WebAssembly.Memory({initial:1000, maximum:2000})
 function colorMatch(){
 	console.time('Pretreatment image data');
-	// get ImgElement
+	// Get ImgElement
 	src_img_or = document.getElementById("src_img");
 	ref_img_or = document.getElementById("ref_img");
 	
-	// to origin-size Image
+	// To origin-size img
 	var src_img = new Image;
 	var ref_img = new Image;
 	src_img.src = src_img_or.src;
 	ref_img.src = ref_img_or.src;
 	
-	// draw img to canvas
-	src_cv = document.createElement('canvas');
+	// Draw img to canvas
+	var src_cv = document.createElement('canvas');
 	src_cv.width = src_img.width;
 	src_cv.height = src_img.height;
-	src_ctx = src_cv.getContext('2d');
+	var src_ctx = src_cv.getContext('2d');
 	src_ctx.drawImage(src_img, 0, 0);
 
-	ref_cv = document.createElement('canvas');
+	var ref_cv = document.createElement('canvas');
 	ref_cv.width = ref_img.width;
 	ref_cv.height = ref_img.height;
-	ref_ctx = ref_cv.getContext('2d');
+	var ref_ctx = ref_cv.getContext('2d');
 	ref_ctx.drawImage(ref_img, 0, 0);
 
-	// send to wasm
-	data_src = src_ctx.getImageData(0, 0, src_img.width, src_img.height);
-	len_src = src_img.width * src_img.height * 4;
-	buffer_src = new Uint8Array(mem.buffer, 1024, len_src);
+	// Allow memory
+	var len_src = src_img.width * src_img.height * 4;
+	var len_ref = ref_img.width * ref_img.height * 4;
+	var p_src = _cr_buffer(len_src);
+	var p_ref = _cr_buffer(len_ref);
+	
+	try{
+	// Write img-data to memory
+	var data_src = src_ctx.getImageData(0, 0, src_img.width, src_img.height);
+	var buffer_src = new Uint8Array(Module.wasmMemory.buffer, p_src, len_src);
 	buffer_src.set(data_src.data);
-
-	data_ref = ref_ctx.getImageData(0, 0, ref_img.width, ref_img.height);
-	len_ref = ref_img.width * ref_img.height * 4;
-	buffer_ref = new Uint8Array(mem.buffer, 2048 + len_src, len_ref);
+	
+	var data_ref = ref_ctx.getImageData(0, 0, ref_img.width, ref_img.height);
+	var buffer_ref = new Uint8Array(Module.wasmMemory.buffer, p_ref, len_ref);
 	buffer_ref.set(data_ref.data);	
 	console.timeEnd('Pretreatment image data');
+	
+	// Do histMatch
 	console.time('WASM');
-	// input data
-	_histMatch(buffer_src, buffer_ref, len_src, len_ref);
+	_histMatch(p_src, p_ref, len_src, len_ref);
 	console.timeEnd('WASM');
 	
+	// Output data
 	console.time('Output image');
-	// output data
 	data_src.data.set(buffer_src);
+	src_ctx.clearRect(0, 0, src_img.width, src_img.height);
 	src_ctx.putImageData(data_src, 0, 0);
-	dataURL = src_cv.toDataURL('image/png');
-	
+	var dataURL = src_cv.toDataURL('image/png');
 	document.getElementById('res_img').src = dataURL;
 	console.timeEnd('Output image');
+
+	// free memory
+	_fr_buffer(p_src);
+	_fr_buffer(p_ref);
+
+	} catch (e) {
+		// Any error: free memory and alert errmsg
+		_fr_buffer(p_src);
+		_fr_buffer(p_ref);
+		alert(e);
+	}
+	
+	console.log("=== Memory Used ===")
+	console.log(Module.wasmMemory.buffer.byteLength/1024/1024 + " MegaByte")
+	console.log("===================")
 }
 </script>
 
