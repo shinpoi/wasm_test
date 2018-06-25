@@ -1,107 +1,93 @@
-//emcc filter.c -std=c11 -Os -o test.js -s EXPORTED_FUNCTIONS='["_histMatch", "_cr_buffer", "_fr_buffer"]' -s ALLOW_MEMORY_GROWTH=1
+//emcc filter.c -std=c11 -Os -o filter.js -s EXPORTED_FUNCTIONS='["_hist_match", "_cr_buffer", "_fr_buffer"]' -s ALLOW_MEMORY_GROWTH=1
 
 #include<stdint.h>
 #include<stdlib.h>
 
-void histMap(uint8_t* buffer, unsigned int len, double* histMap_R, double* histMap_G, double* histMap_B);
-void matchMap(double* histMap_src, double* histMap_ref, uint8_t* map);
-double sum(double* array, unsigned int len);
+void hist_atch(uint8_t* srcBuffer, uint8_t* refBuffer, int srcLen, int refLen);
+void histMap(uint8_t* buffer, int len, double* histMap_R, double* histMap_G, double* histMap_B);
+void hist(uint8_t* arr, int len, double* histArr, int offset);
+void hist2map(double* hist, int histLen);
+void calc_map(double* srcMap, double* refMap, int* map, int len);
+double sum_f(double* arr, int len);
 
-unsigned char* cr_buffer(unsigned int size) {
+
+uint8_t* cr_buffer(int size) {
 	return malloc(size);
 }
 
-void fr_buffer(unsigned char* p) {
+void fr_buffer(uint8_t* p) {
 	free(p);
 }
 
-void histMatch(uint8_t* buffer_src, uint8_t* buffer_ref, unsigned int len_src, unsigned int len_ref) {
-	double src_histMap_R[256] = {0};
-	double src_histMap_G[256] = {0};
-	double src_histMap_B[256] = {0};
-	double ref_histMap_R[256] = {0};
-	double ref_histMap_G[256] = {0};
-	double ref_histMap_B[256] = {0};
+void hist_match(uint8_t* srcBuffer, uint8_t* refBuffer, int srcLen, int refLen) {
+	double srcHist[3][256] = {0};
+	double refHist[3][256] = {0};
+	int map[3][256] = {0};
 
-	histMap(buffer_src, len_src, src_histMap_R, src_histMap_G, src_histMap_B);
-	histMap(buffer_ref, len_ref, ref_histMap_R, ref_histMap_G, ref_histMap_B);
+	// for RGB
+	for (int ch=0; ch<3; ch++) {
+		hist(srcBuffer, srcLen, srcHist[ch], ch);
+		hist(refBuffer, refLen, refHist[ch], ch);
 
-	uint8_t map_R[256] = {0};
-	uint8_t map_G[256] = {0};
-	uint8_t map_B[256] = {0};
+		hist2map(srcHist[ch], 256);
+		hist2map(refHist[ch], 256);
 
-	matchMap(src_histMap_R, ref_histMap_R, map_R);
-	matchMap(src_histMap_G, ref_histMap_G, map_G);
-	matchMap(src_histMap_B, ref_histMap_B, map_B);
+		calc_map(srcHist[ch], refHist[ch], map[ch], 256);
 
-	for (int i=0; i<len_src; i+=4) {
-		buffer_src[i] = map_R[buffer_src[i]];
-		buffer_src[i+1] = map_G[buffer_src[i+1]];
-		buffer_src[i+2] = map_B[buffer_src[i+2]];
-	}
-}
-
-
-// double hist_R/G/B[256] = {0}
-void histMap(uint8_t* buffer, unsigned int len, double* histMap_R, double* histMap_G, double* histMap_B) {
-	double hist_R[256] = {0};
-	double hist_G[256] = {0};
-	double hist_B[256] = {0};
-		
-	for(int i=0; i<len; i+=4) {
-		if (buffer[i+3]){
-			hist_R[buffer[i]] += 1;
-			hist_G[buffer[i+1]] += 1;
-			hist_B[buffer[i+2]] += 1;
+		for (int i=0; i<srcLen; i+=4) {
+			srcBuffer[i+ch] = map[ch][srcBuffer[i+ch]];
 		}
 	}
+}
 
-	double sum_R = sum(hist_R, 256);
-	double sum_G = sum(hist_G, 256);
-	double sum_B = sum(hist_B, 256);
-
-	for (int i=0; i<256; i++) {
-		hist_R[i] = hist_R[i]/sum_R;
-		hist_G[i] = hist_G[i]/sum_G;
-		hist_B[i] = hist_B[i]/sum_B;
-	}
-
-	sum_R = sum_G = sum_B = 0;
-	for (int i=0; i<256; i++) {
-		sum_R += hist_R[i];
-		sum_G += hist_G[i];
-		sum_B += hist_B[i];
-		histMap_R[i] = sum_R;
-		histMap_G[i] = sum_G;
-		histMap_B[i] = sum_B;
+void hist(uint8_t* arr, int len, double* histArr, int offset) {
+	for (int i=0; i<len; i+=4) {
+		if (arr[i+3]){
+			histArr[arr[i+offset]]++;
+		}
 	}
 }
 
-// unsigned int map[256] = {0}
-void matchMap(double* histMap_src, double* histMap_ref, uint8_t* map) {
-	for (int i=0; i<256; i++){
-		double min_diff = 2;
+void hist2map(double* hist, int histLen) {
+	double sum = sum_f(hist, histLen);
+	for (int i=0; i<histLen; i++) {
+		hist[i] /= sum;
+	}
+
+	sum = 0;
+	for (int i=0; i<histLen; i++){
+		sum += hist[i];
+		hist[i] = sum;
+	}
+}
+
+void calc_map(double* srcMap, double* refMap, int* map, int len) {
+	for (int i=0; i<len; i++){
+		double minDiff = 2;
 		double diff = 0;
-		for (int j=map[i-1]; j<256; j++) {
-			if (diff == histMap_src[i] - histMap_ref[j]) {
+		int nextJ = 0;
+		for (int j=nextJ; j<len; j++) {
+			if (diff == srcMap[i] - refMap[j]) {
 				continue;
 			} else {
-				diff = histMap_src[i] - histMap_ref[j];
+				diff = srcMap[i] - refMap[j];
 				diff = (diff > 0)?diff:-diff;
 			}
 
-			if (diff < min_diff) {
-				min_diff = diff;
+			if (diff < minDiff) {
+				minDiff = diff;
 				map[i] = j;
 			}
 		}
+		nextJ = i?i-1:0;
 	}
 }
 
-double sum(double* array, unsigned int len) {
-	double summ = 0;
+
+double sum_f(double* arr, int len) {
+	double sum = 0;
 	for (int i=0; i<len; i++){
-		summ += array[i];
+		sum += arr[i];
 	}
-	return summ;
+	return sum;
 }
