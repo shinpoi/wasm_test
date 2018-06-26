@@ -1,15 +1,18 @@
 //emcc filter.c -std=c11 -Os -o filter.js -s EXPORTED_FUNCTIONS='["_hist_match", "_cr_buffer", "_fr_buffer"]' -s ALLOW_MEMORY_GROWTH=1
 
-#include<stdint.h>
+#include<stdint.h><F10>
 #include<stdlib.h>
 
-void hist_atch(uint8_t* srcBuffer, uint8_t* refBuffer, int srcLen, int refLen);
-void histMap(uint8_t* buffer, int len, double* histMap_R, double* histMap_G, double* histMap_B);
+void hist_match(uint8_t* srcBuffer, uint8_t* refBuffer, int srcLen, int refLen);
 void hist(uint8_t* arr, int len, double* histArr, int offset);
 void hist2map(double* hist, int histLen);
 void calc_map(double* srcMap, double* refMap, int* map, int len);
 double sum_f(double* arr, int len);
 
+// srcSize = refSize, scale image by JS.
+void rgb_exchange(uint8_t* srcBuffer, uint8_t* refBuffer, int len);
+void sort_with(uint8_t** pArr, int* indexArr, int len);
+void restore(uint8_t** pArr, int indexArr, int len);
 
 uint8_t* cr_buffer(int size) {
 	return malloc(size);
@@ -17,6 +20,51 @@ uint8_t* cr_buffer(int size) {
 
 void fr_buffer(uint8_t* p) {
 	free(p);
+}
+
+void rgb_exchange(uint8_t* srcBuffer, uint8_t* refBuffer, int len) {
+	// init
+	uint8_t* pSrcBuffer[3];
+	uint8_t* pRefBuffer[3];
+	int l = len/4;
+	int srcIndexArrs[3][len] = {0};
+
+	for (int i=0; i<l; i++) {
+		for (int ch=0; ch<3; ch++) {
+			pSrcBuffer[ch][i] = srcBuffer + i*4 + ch;
+			pRefBuffer[ch][i] = refBuffer + i*4 + ch;
+		}
+	}
+
+	for (int i=0; i<len; i++) {
+		for (int ch=0; ch<3; ch++) {
+			indexArrs[ch][i] = i;
+		}
+	}
+
+	// run
+	for (int ch=0; ch<3; ch++) {
+		// sort srcArr(with index) and refArr.
+		sort(pSrcBuffer[ch], indexArrs[ch], l);
+		sort(pRefBuffer[ch], NULL, l);
+
+		// exchange sorted srcArr and refArr
+		for (int i=0; i<l; i++) {
+			*pSrcBuffer[ch][i] = *pRefBuffer[ch][i];
+		}
+
+		// restore srcArr by index
+		restore(pSrcBuffer[ch], indexArrs[ch], l);
+	}
+}
+
+void restore(uint8_t** pArr, int indexArr, int len) {
+	uint8_t t = 0;
+	for (int i=0; i<len; i++) {
+		t = *pArr[i];
+		*pArr[i] = *pArr[indexArr[i]];
+		*pArr[indexArr[i]] = t;
+	}
 }
 
 void hist_match(uint8_t* srcBuffer, uint8_t* refBuffer, int srcLen, int refLen) {
