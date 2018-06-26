@@ -1,6 +1,6 @@
-//emcc filter.c -std=c11 -Os -o filter.js -s EXPORTED_FUNCTIONS='["_hist_match", "_cr_buffer", "_fr_buffer"]' -s ALLOW_MEMORY_GROWTH=1
+//emcc filter.c -std=c11 -Os -o filter.js -s EXPORTED_FUNCTIONS='["_hist_match", "_rgb_exchange", "_cr_buffer", "_fr_buffer"]' -s ALLOW_MEMORY_GROWTH=1
 
-#include<stdint.h><F10>
+#include<stdint.h>
 #include<stdlib.h>
 
 void hist_match(uint8_t* srcBuffer, uint8_t* refBuffer, int srcLen, int refLen);
@@ -12,7 +12,7 @@ double sum_f(double* arr, int len);
 // srcSize = refSize, scale image by JS.
 void rgb_exchange(uint8_t* srcBuffer, uint8_t* refBuffer, int len);
 void sort_with(uint8_t** pArr, int* indexArr, int len);
-void restore(uint8_t** pArr, int indexArr, int len);
+void restore(uint8_t** pArr, int* indexArr, int len);
 
 uint8_t* cr_buffer(int size) {
 	return malloc(size);
@@ -24,10 +24,10 @@ void fr_buffer(uint8_t* p) {
 
 void rgb_exchange(uint8_t* srcBuffer, uint8_t* refBuffer, int len) {
 	// init
-	uint8_t* pSrcBuffer[3];
-	uint8_t* pRefBuffer[3];
 	int l = len/4;
-	int srcIndexArrs[3][len] = {0};
+	uint8_t* pSrcBuffer[3][l];
+	uint8_t* pRefBuffer[3][l];
+	int indexArrs[3][l];
 
 	for (int i=0; i<l; i++) {
 		for (int ch=0; ch<3; ch++) {
@@ -45,8 +45,8 @@ void rgb_exchange(uint8_t* srcBuffer, uint8_t* refBuffer, int len) {
 	// run
 	for (int ch=0; ch<3; ch++) {
 		// sort srcArr(with index) and refArr.
-		sort(pSrcBuffer[ch], indexArrs[ch], l);
-		sort(pRefBuffer[ch], NULL, l);
+		sort_with(pSrcBuffer[ch], indexArrs[ch], l);
+		sort_with(pRefBuffer[ch], NULL, l);
 
 		// exchange sorted srcArr and refArr
 		for (int i=0; i<l; i++) {
@@ -58,13 +58,17 @@ void rgb_exchange(uint8_t* srcBuffer, uint8_t* refBuffer, int len) {
 	}
 }
 
-void restore(uint8_t** pArr, int indexArr, int len) {
+void restore(uint8_t** pArr, int* indexArr, int len) {
 	uint8_t t = 0;
 	for (int i=0; i<len; i++) {
 		t = *pArr[i];
 		*pArr[i] = *pArr[indexArr[i]];
 		*pArr[indexArr[i]] = t;
 	}
+}
+
+void sort_with(uint8_t** pArr, int* indexArr, int len) {
+	;
 }
 
 void hist_match(uint8_t* srcBuffer, uint8_t* refBuffer, int srcLen, int refLen) {
