@@ -15,7 +15,7 @@ void sort_with(uint8_t** pArr, int* indexArr, int len);
 void restore(uint8_t** pArr, int* indexArr, int len);
 
 uint8_t* cr_buffer(int size) {
-	return malloc(size);
+	return (uint8_t*)malloc(size * sizeof(uint8_t));
 }
 
 void fr_buffer(uint8_t* p) {
@@ -25,19 +25,20 @@ void fr_buffer(uint8_t* p) {
 void rgb_exchange(uint8_t* srcBuffer, uint8_t* refBuffer, int len) {
 	// init
 	int l = len/4;
-	uint8_t* pSrcBuffer[3][l];
-	uint8_t* pRefBuffer[3][l];
-	int indexArrs[3][l];
+	uint8_t** pSrcBuffer[3];
+	uint8_t** pRefBuffer[3];
+	int* indexArrs[3];
 
-	for (int i=0; i<l; i++) {
-		for (int ch=0; ch<3; ch++) {
-			pSrcBuffer[ch][i] = srcBuffer + i*4 + ch;
-			pRefBuffer[ch][i] = refBuffer + i*4 + ch;
-		}
+	for (int i=0; i<3; i++) {
+		pSrcBuffer[i] = (uint8_t**) malloc(l * sizeof(uint8_t*));
+		pRefBuffer[i] = (uint8_t**) malloc(l * sizeof(uint8_t*));
+		indexArrs[i] = (int*) malloc(l * sizeof(int));
 	}
 
-	for (int i=0; i<len; i++) {
-		for (int ch=0; ch<3; ch++) {
+	for (int ch=0; ch<3; ch++) {
+		for (int i=0; i<l; i++) {
+			pSrcBuffer[ch][i] = srcBuffer + i*4 + ch;
+			pRefBuffer[ch][i] = refBuffer + i*4 + ch;
 			indexArrs[ch][i] = i;
 		}
 	}
@@ -56,6 +57,13 @@ void rgb_exchange(uint8_t* srcBuffer, uint8_t* refBuffer, int len) {
 		// restore srcArr by index
 		restore(pSrcBuffer[ch], indexArrs[ch], l);
 	}
+
+	// free memory
+	for (int i=0; i<3; i++) {
+		free(pSrcBuffer[i]);
+		free(pRefBuffer[i]);
+		free(indexArrs[i]);
+	}
 }
 
 void restore(uint8_t** pArr, int* indexArr, int len) {
@@ -70,14 +78,12 @@ void restore(uint8_t** pArr, int* indexArr, int len) {
 void sort_with(uint8_t** pArr, int* indexArr, int len) {
 	int index = 0;
 	uint8_t min = 0;
-	uint8_t b_min = 0;
 	uint8_t t = 0;
 	for (int i; i<len; i++) {
-		b_min = min;
+		if (*pArr[i] == min) { continue; }
 		min = 255;
 
-		for (int j=0; j<len-i; j++) {
-			if (*pArr[i] == b_min) { continue; }
+		for (int j=i; j<len; j++) {
 			if (*pArr[j] < min) {
 				min = *pArr[j];
 				index = j;

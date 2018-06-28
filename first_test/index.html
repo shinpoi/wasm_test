@@ -42,9 +42,8 @@
 	
 	<div class="Lsize">Referrence Image:　<input id="input_ref" Xdraw="ref_img" type="file" accept="image/*" /></div><br/>
 	<img id="ref_img" src=""></img><br/>
-	<button onclick="colorMatch()">　Render　</button>
-
-	<!-- example -->
+	<button onclick='colorMatch()'>　Hist Match　</button>
+	<button onclick='colorMatch(1)'> Exchange RGB </button>
 
 
 <script type="text/javaScript">
@@ -76,15 +75,20 @@
 
 </script>
 <script>
-function colorMatch(){
+function colorMatch(exFlag){
 	console.time('Pretreatment image data');
 	// Get ImgElement
 	var src_img = document.getElementById("src_img");
 	var ref_img = document.getElementById("ref_img");
 	srcW = src_img.naturalWidth;
 	srcH = src_img.naturalHeight;
-	refW = src_img.naturalWidth;
-	refH = src_img.naturalHeight;
+	if (exFlag) {
+		refW = srcW;
+		refH = srcH;
+	} else {
+		refW = ref_img.naturalWidth;
+		refH = ref_img.naturalHeight;
+	}
 
 	// Draw img to canvas
 	var src_cv = document.createElement('canvas');
@@ -97,7 +101,7 @@ function colorMatch(){
 	ref_cv.width = refW;
 	ref_cv.height = refH;
 	var ref_ctx = ref_cv.getContext('2d');
-	ref_ctx.drawImage(ref_img, 0, 0);
+	ref_ctx.drawImage(ref_img, 0, 0, width=refW, height=refH);
 
 	// Allow memory
 	var len_src = srcW * srcH * 4;
@@ -105,7 +109,7 @@ function colorMatch(){
 	var p_src = _cr_buffer(len_src);
 	var p_ref = _cr_buffer(len_ref);
 	
-	try{
+	//try{
 	// Write img-data to memory
 	var data_src = src_ctx.getImageData(0, 0, srcW, srcH);
 	var buffer_src = new Uint8Array(Module.wasmMemory.buffer, p_src, len_src);
@@ -118,7 +122,11 @@ function colorMatch(){
 	
 	// Do histMatch
 	console.time('WASM');
-	_hist_match(p_src, p_ref, len_src, len_ref);
+	if (exFlag) {
+		_rgb_exchange(p_src, p_ref, len_src);
+	} else {
+		_hist_match(p_src, p_ref, len_src, len_ref);
+	}
 	console.timeEnd('WASM');
 	
 	// Output data
@@ -134,12 +142,12 @@ function colorMatch(){
 	_fr_buffer(p_src);
 	_fr_buffer(p_ref);
 
-	} catch (e) {
+	/*} catch (e) {
 		// Any error: free memory and alert errmsg
 		_fr_buffer(p_src);
 		_fr_buffer(p_ref);
 		alert(e);
-	}
+	}*/
 	
 	console.log("=== Memory Used ===")
 	console.log(Module.wasmMemory.buffer.byteLength/1024/1024 + " MegaByte")
