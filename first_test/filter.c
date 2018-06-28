@@ -68,7 +68,31 @@ void restore(uint8_t** pArr, int* indexArr, int len) {
 }
 
 void sort_with(uint8_t** pArr, int* indexArr, int len) {
-	;
+	int index = 0;
+	uint8_t min = 0;
+	uint8_t b_min = 0;
+	uint8_t t = 0;
+	for (int i; i<len; i++) {
+		b_min = min;
+		min = 255;
+
+		for (int j=0; j<len-i; j++) {
+			if (*pArr[i] == b_min) { continue; }
+			if (*pArr[j] < min) {
+				min = *pArr[j];
+				index = j;
+			}
+		}
+
+		t = *pArr[index];
+		*pArr[index] = *pArr[i];
+		*pArr[i] = t;
+		if (indexArr) {
+			t = *pArr[index];
+			*pArr[index] = *pArr[i];
+			*pArr[i] = t;
+		}
+	}
 }
 
 void hist_match(uint8_t* srcBuffer, uint8_t* refBuffer, int srcLen, int refLen) {
