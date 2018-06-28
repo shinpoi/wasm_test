@@ -79,41 +79,39 @@
 function colorMatch(){
 	console.time('Pretreatment image data');
 	// Get ImgElement
-	src_img_or = document.getElementById("src_img");
-	ref_img_or = document.getElementById("ref_img");
-	
-	// To origin-size img
-	var src_img = new Image;
-	var ref_img = new Image;
-	src_img.src = src_img_or.src;
-	ref_img.src = ref_img_or.src;
-	
+	var src_img = document.getElementById("src_img");
+	var ref_img = document.getElementById("ref_img");
+	srcW = src_img.naturalWidth;
+	srcH = src_img.naturalHeight;
+	refW = src_img.naturalWidth;
+	refH = src_img.naturalHeight;
+
 	// Draw img to canvas
 	var src_cv = document.createElement('canvas');
-	src_cv.width = src_img.width;
-	src_cv.height = src_img.height;
+	src_cv.width = srcW;
+	src_cv.height = srcH;
 	var src_ctx = src_cv.getContext('2d');
 	src_ctx.drawImage(src_img, 0, 0);
 
 	var ref_cv = document.createElement('canvas');
-	ref_cv.width = ref_img.width;
-	ref_cv.height = ref_img.height;
+	ref_cv.width = refW;
+	ref_cv.height = refH;
 	var ref_ctx = ref_cv.getContext('2d');
 	ref_ctx.drawImage(ref_img, 0, 0);
 
 	// Allow memory
-	var len_src = src_img.width * src_img.height * 4;
-	var len_ref = ref_img.width * ref_img.height * 4;
+	var len_src = srcW * srcH * 4;
+	var len_ref = refW * refH * 4;
 	var p_src = _cr_buffer(len_src);
 	var p_ref = _cr_buffer(len_ref);
 	
 	try{
 	// Write img-data to memory
-	var data_src = src_ctx.getImageData(0, 0, src_img.width, src_img.height);
+	var data_src = src_ctx.getImageData(0, 0, srcW, srcH);
 	var buffer_src = new Uint8Array(Module.wasmMemory.buffer, p_src, len_src);
 	buffer_src.set(data_src.data);
 	
-	var data_ref = ref_ctx.getImageData(0, 0, ref_img.width, ref_img.height);
+	var data_ref = ref_ctx.getImageData(0, 0, refW, refH);
 	var buffer_ref = new Uint8Array(Module.wasmMemory.buffer, p_ref, len_ref);
 	buffer_ref.set(data_ref.data);	
 	console.timeEnd('Pretreatment image data');
@@ -126,7 +124,7 @@ function colorMatch(){
 	// Output data
 	console.time('Output image');
 	data_src.data.set(buffer_src);
-	src_ctx.clearRect(0, 0, src_img.width, src_img.height);
+	src_ctx.clearRect(0, 0, srcW, srcH);
 	src_ctx.putImageData(data_src, 0, 0);
 	var dataURL = src_cv.toDataURL('image/png');
 	document.getElementById('res_img').src = dataURL;
