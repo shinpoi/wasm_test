@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-cn">
 <head>
@@ -27,13 +26,13 @@
 
 <body>
 	<!-- Info -->
-	<h3>简易图像加密器 / <a href="https://github.com/shinpoi/wasm_test">Code</a></h3>
+	<h3>简易图像加密器 v0.1.0 / <a href="https://github.com/shinpoi/wasm_test/blob/master/c/img_xor_encrypt/img_xor_encrypt.c">Code</a></h3>
 	<p>对密钥循环hash后，和图像xor的简易加密工具。<br/>
 	hash函数是随手写的，未经任何安全测试……所以，<span style="color:red">本工具仅供好玩，请勿用于实际生产环境，出安全问题了俺不管：）</span></p>
 
 	<p><b>说明：</b></p>
 	<ol type="1">
-	<li>按 "choose file" 上传图片</li>
+	<li>上传图片</li>
 	<li>在 "secret word" 框里输入暗号</li>
 	<li>点 "encrypt / decrypt" 按钮</li>
 	<li>保存加密后的图片</li>
@@ -47,7 +46,7 @@
 	<button onclick="xor_mask()"> encrypt / decrypt </button></p>
 	<p id="alert_msg"></p>
 	Input: <img id="src_img" src=""></img><br/><hr>
-	Result:　<img id="res_img" src=""></img><br/>
+	<a id="dl">Result(click to download)</a>:　<img id="res_img" src=""></img><br/>
 
 
 	<!-- example -->
@@ -122,8 +121,8 @@ function xor_mask() {
 	
 	try{
 		// Allow memory
-		let p_src = _cr_buffer(len_src);
-		let p_key = _cr_buffer(len_key);
+		var p_src = _cr_buffer(len_src);
+		var p_key = _cr_buffer(len_key);
 
         // Write img-data to memory
 		console.time('Write data to wasm memory');
@@ -148,6 +147,10 @@ function xor_mask() {
         src_ctx.putImageData(data_src, 0, 0);
         let dataURL = src_cv.toDataURL('image/png');
         document.getElementById('res_img').src = dataURL;
+		src_cv.toBlob(function(blob) {
+			document.getElementById('dl').href = URL.createObjectURL(blob);
+		}, "image/png")
+		
         console.timeEnd('Draw image');
 
         // Free memory
@@ -169,3 +172,4 @@ function xor_mask() {
 </script>
 
 </body>
+
