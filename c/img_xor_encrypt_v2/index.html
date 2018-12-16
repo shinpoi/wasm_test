@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+	<meta content="text/html" charset="UTF-8">
+	<script type="text/javaScript" src="xor_encrypt.js"></script>
+	<style>
+		img{
+			max-width: 720px;
+			max-height: 720px;
+			border: 1px solid black;
+			margin: 0.5em;
+		}
+		button{
+			font-size: 1.25em;
+		}
+		input{
+			font-size: 1em;
+		}
+
+		#cv{
+			max-width: 720px;
+			max-height: 720px;
+		}
+
+		#alert_msg{
+			font-size: 1.25em;
+			color: red;
+		}
+
+
+	</style>
+</head>
+
+<body>
+	<!-- Info -->
+	<h3>简易图像加密器 v0.1.0 / <a href="https://github.com/shinpoi/wasm_test/blob/master/c/img_xor_encrypt/img_xor_encrypt.c">Code</a></h3>
+	<p>对密钥循环hash后，和图像xor的简易加密工具。<br/>
+	hash函数是随手写的，未经任何安全测试……所以，<span style="color:red">本工具仅供好玩，请勿用于实际生产环境，出安全问题了俺不管：）</span></p>
+
+	<p><b>说明：</b></p>
+	<ol type="1">
+	<li>上传图片</li>
+	<li>在 "secret word" 框里输入暗号</li>
+	<li>点 "encrypt / decrypt" 按钮</li>
+	<li>保存加密后的图片</li>
+	</ol>
+	<p>解密顺序完全相同，暗号不对的话会得到奇怪的东西：）</p>
+	<hr>
+
+	<!-- Tools -->
+	<p><input id="input_src" Xdraw="src_img" type="file" accept="image/*"><br/></p>
+	<p><input type="text" placeholder="secret word" id="key">
+	<button onclick="xor_mask()"> encrypt / decrypt </button></p>
+	<p id="alert_msg"></p>
+	Input: <img id="src_img" src=""></img><br/><hr>
+	<a id="dl">Result(click to download)</a>:　<div id="res_img"></div><br/>
+
+
+	<!-- example -->
+
+
+<script type="text/javaScript">
+	var input_src = document.getElementById("input_src");
+	input_src.addEventListener('change', readFile, false);
+	function readFile(){
+		console.time('Read image and display');
+		var file = this.files[0];
+		if (!/image\/[a-zA-Z]+/.test(file.type)) {
+			alert("Please upload a Image!");
+		}
+		var reader = new FileReader();
+		reader.readAsDataURL(file);
+		var Xdraw = this.getAttribute('Xdraw'); 
+		reader.onload = function(e){
+			displayAsImage(this.result, Xdraw);
+		console.timeEnd('Read image and display');
+		}
+	}
+
+	function displayAsImage(data, id_){
+		document.getElementById(id_).src = data;
+	}
+
+</script>
+<script>
+function msg_alert(str) {
+	document.getElementById("alert_msg").textContent = str;
+}
+
+function clean_alert() {
+	document.getElementById("alert_msg").textContent = "";
+}
+
+function xor_mask() {
+	clean_alert();
+	console.time('Init data');
+	// Get ImgElement
+	src_img_or = document.getElementById("src_img");
+	
+	// To origin-size img
+	let src_img = new Image;
+	src_img.src = src_img_or.src;
+
+	// Draw img to canvas
+	let src_cv = document.createElement('canvas');
+	src_cv.id = "cv";
+	src_cv.width = src_img.width;
+	src_cv.height = src_img.height;
+	let src_ctx = src_cv.getContext('2d');
+	src_ctx.drawImage(src_img, 0, 0);
+
+	// test: get key:
+	let key = document.getElementById("key").value;
+	let en = new TextEncoder('utf-8');
+	let k_arr = en.encode(key)
+
+	let len_src = src_img.width * src_img.height * 4;
+	let len_key = k_arr.length
+	console.timeEnd('Init data');
+
+	if (len_key < 4 || len_key > 64) {
+		msg_alert("Key size: 3 < key < 65 (汉字算三～四个字符");
+		return;
+	}
+	if (len_src <= 0) {
+		msg_alert("need a image!");
+		return;
+	}
+	
+	try{
+		// Allow memory
+		var p_src = _cr_buffer(len_src);
+		var p_key = _cr_buffer(len_key);
+
+        // Write img-data to memory
+		console.time('Write data to wasm memory');
+        let data_src = src_ctx.getImageData(0, 0, src_img.width, src_img.height);
+        let buffer_src = new Uint8Array(Module.wasmMemory.buffer, p_src, len_src);
+        buffer_src.set(data_src.data);
+
+        let buffer_key = new Uint8Array(Module.wasmMemory.buffer, p_key, len_key);
+        buffer_key.set(k_arr);
+		console.timeEnd('Write data to wasm memory');
+        
+        
+        // Do wasm
+        console.time('WASM');
+        _mask(p_key, len_key, p_src, len_src, src_img.height, src_img.width);
+        console.timeEnd('WASM');
+        
+        // Draw image
+        console.time('Draw image');
+        data_src.data.set(buffer_src);
+        src_ctx.clearRect(0, 0, src_img.width, src_img.height);
+        src_ctx.putImageData(data_src, 0, 0);
+		document.getElementById("res_img").appendChild(src_cv);
+        // let dataURL = src_cv.toDataURL('image/png');
+        // document.getElementById('res_img').src = dataURL;
+		src_cv.toBlob(function(blob) {
+			let a = document.getElementById('dl');
+			a.href = URL.createObjectURL(blob);
+			console.log(a.href);
+			a.download = "mask_img.png"
+		}, "image/png")
+		
+        console.timeEnd('Draw image');
+
+        // Free memory
+        _fr_buffer(p_src);
+		_fr_buffer(p_key);
+		console.log("free memory")
+
+	} catch (e) {
+		// Any error: free memory and alert errmsg
+		_fr_buffer(p_src);
+		_fr_buffer(p_key);
+		alert(e);
+	}
+
+	console.log("=== Memory Used ===")
+	console.log(Module.wasmMemory.buffer.byteLength/1024/1024 + " MegaByte")
+	console.log("===================")
+}
+</script>
+
+</body>
+
