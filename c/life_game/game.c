@@ -59,7 +59,7 @@ uint8_t get_status(int x, int y) {
     for (int i = -limit; i<limit+1; i++) {
         for (int j = -limit; j<limit+1; j++) {
             if (i == 0 && j == 0) {continue;}
-            sum += Space_now[((y+i) % H)*W + ((x+j)%W)];
+            sum += Space_now[((y+i+H) % H)*W + ((x+j+W)%W)];
         }
     }
     return sum;
@@ -101,3 +101,13 @@ void next() {
 
     draw();
 }
+/*
+int main() {
+    unsigned int a = 9%10;
+    unsigned int b = 10%10;
+    unsigned int c = -1%10;
+
+    int x[10] = {0,1,2,3,4,5,6,7,8,9};
+    printf("%d, %d, %d\n", a, b, c);
+    printf("%d, %d, %d\n", x[a], x[b], x[c]);
+}*/
