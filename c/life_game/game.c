@@ -27,7 +27,7 @@ void clear_world() {
     H_px = 0;
     W_px = 0;
     s_block = 0;
-    if (Space_now == NULL | Space_next == NULL | Img == NULL) {
+    if (Space_now == NULL || Space_next == NULL || Img == NULL) {
         printf("world is NULL.\n");
         return;
     }
@@ -39,7 +39,7 @@ void clear_world() {
 
 void init_world(int w, int h, int block_size, uint8_t* space, uint8_t* img) {
     clear_world();
-    if (w == 0 | h == 0 | block_size == 0) {
+    if (w == 0 || h == 0 || block_size == 0) {
         return;
     }
     W = w;
@@ -55,10 +55,10 @@ void init_world(int w, int h, int block_size, uint8_t* space, uint8_t* img) {
 
 const int limit = 1;
 uint8_t get_status(int x, int y) {
-    int sum = 0;
+    uint8_t sum = 0;
     for (int i = -limit; i<limit+1; i++) {
-        for (int j = -limit; j<=limit+1; j++) {
-            if (i == 0 & j == 0) {continue;}
+        for (int j = -limit; j<limit+1; j++) {
+            if (i == 0 && j == 0) {continue;}
             sum += Space_now[((y+i) % H)*W + ((x+j)%W)];
         }
     }
@@ -80,7 +80,7 @@ void next() {
             uint8_t status = get_status(x, y);
             int i = y*W + x;
             if (Space_now[i]) {
-                if (status == 2 | status == 3){
+                if (status == 2 || status == 3){
                     Space_next[i] = 1;
                 } else {
                     Space_next[i] = 0;

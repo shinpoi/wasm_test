@@ -47,7 +47,7 @@
 	<canvas id="cv" width="800" height="600"></canvas>
 
 <script>
-var flag = false;
+var pause = true;
 var Height = 0;
 var Width = 0;
 var block_size = 0;
@@ -56,7 +56,7 @@ var ptr_img;
 var space;
 var img;
 var init_flag = false;
-var running_flag = false;
+var running = false;
 var delay_ms = 0;
 
 function sleep(ms) {
@@ -65,7 +65,8 @@ function sleep(ms) {
 
 async function pause_wold() {
 	console.log("pause game");
-	flag = false;
+	pause = true;
+	running = false;
 }
 
 function msg_alert(str) {
@@ -87,7 +88,7 @@ function bad_param() {
 
 function init_wold() {
 	clean_alert();
-	flag = false;
+	pause = true;
 
 	Width = document.getElementById("width").value;
 	Height = document.getElementById("height").value;
@@ -105,18 +106,17 @@ function init_wold() {
 	space = new Uint8Array(Module.wasmMemory.buffer, ptr_space, Width*Height);
 	img = new Uint8Array(Module.wasmMemory.buffer, ptr_img, Width*Height*4*block_size*block_size);
 	for(i=0; i<space.length; i+=4) {
-		space[i] = parseInt(Math.random() + 0.3);
+		space[i] = parseInt(Math.random() + 0.4);
 	}
 
 	let p = _init_world(Width, Height, block_size, ptr_space, ptr_img);
 	init_flag = true;
-	running_flag = false;
 	msg_alert("world created!");
 }
 
 async function start_wold() {
 	clean_alert();
-	if (running_flag) {
+	if (running) {
 		return;
 	}
 	if (!init_flag) {
@@ -124,24 +124,25 @@ async function start_wold() {
 	}
 	delay_ms = document.getElementById("delay").value;
 	if (bad_param()) {return;}
-	flag = true;
+	pause = false;
 	let ctx = document.getElementById("cv").getContext('2d');
 	let img_data = new ImageData(new Uint8ClampedArray(Width*Height*4*block_size*block_size), Width*block_size, Height*block_size);
 	ctx.putImageData(img_data, 0, 0);
 	console.log("start game");
+	running = true;
 	try{
-		while (flag) {
+		while (!pause) {
 			_next();
 			img_data.data.set(img);
 			ctx.putImageData(img_data, 0, 0);
-			// console.log(space);
 			await sleep(delay_ms);
 		}
 	} catch (e) {
 		console.error(e);
 		console.log("crash!");
-		_clear_world();
+		running = false;
 	}
+	running = false;
 }
 </script>
 
