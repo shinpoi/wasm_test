@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+	<meta content="text/html" charset="UTF-8">
+	<script type="text/javaScript" src="game.js"></script>
+	<base target="_blank">
+	<style>
+		button{
+			font-size: 1.25em;
+		}
+		input{
+			font-size: 1em;
+		}
+		#cv{
+			border: 1px solid black;
+		}
+
+		#alert_msg{
+			color: red;
+		}
+	</style>
+</head>
+
+<body>
+	<!-- Info -->
+	<h2>康威生命游戏 / <a href="https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life">Conway's Game of Life</a></h2>
+	<p>wasm+canvas实现的像素版康威生命游戏, <a href="https://github.com/shinpoi/wasm_test/tree/master/c/life_game">代码点这里</a></p>
+	<p>说明：</p>
+	<ol type="1">
+		<li>设置参数</li>
+		<li>点 init_wold</li>
+		<li>点 start_wold</li>
+		<li>pause_wold后可以更改rest_time, 点start_wold继续。其它参数的更改在再次init_wold后才会生效</li>
+	</ol>
+	<!-- Tools -->
+	<HR>
+	<p>width: <input type="text" value=120 id="width"> // 宽度（格）</p>
+	<p>height: <input type="text" value=80 id="height"> // 高度（格）</p>
+	<p>cell_size: <input type="text" value=10 id="block_size"> // 每格占多少像素，乘上宽/高为画布的实际尺寸</p>
+	<p>rest_time(ms): <input type="text" value=100 id="delay"> // 每次迭代的休息时间，1000ms=1s。越大迭代间的间隔越长。</p>
+	<p id="alert_msg">　</p>
+	<HR>
+	<p><button onclick="init_wold()"> init_wold </button>
+	<button onclick="start_wold()"> start_wold </button>
+	<button onclick="pause_wold()"> pause_wold </button></p>
+	<HR>
+	<canvas id="cv" width="800" height="600"></canvas>
+
+<script>
+var flag = false;
+var Height = 0;
+var Width = 0;
+var block_size = 0;
+var ptr_space;
+var ptr_img;
+var space;
+var img;
+var init_flag = false;
+var running_flag = false;
+var delay_ms = 0;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function pause_wold() {
+	console.log("pause game");
+	flag = false;
+}
+
+function msg_alert(str) {
+	document.getElementById("alert_msg").textContent = str;
+}
+
+function clean_alert() {
+	document.getElementById("alert_msg").textContent = "　";
+}
+
+function bad_param() {
+	if (!Number.isInteger(Height) || !Number.isInteger(Width) || !Number.isInteger(block_size) || !Number.isInteger(delay_ms)) {
+		if (Height <= 0 || Width <= 0 || block_size <= 0 || delay_ms <= 0) {
+			msg_alert("please input positive integer!");
+			return true;
+		}
+	}
+}
+
+function init_wold() {
+	clean_alert();
+	flag = false;
+
+	Width = document.getElementById("width").value;
+	Height = document.getElementById("height").value;
+	block_size = document.getElementById("block_size").value;
+	delay_ms = document.getElementById("delay").value;
+	if (bad_param()) {return;}
+
+	// console.log("init game");
+	document.getElementById("cv").width = Width * block_size;
+	document.getElementById("cv").height = Height * block_size;
+
+	ptr_space = _cr_buffer(Width*Height);
+	ptr_img = _cr_buffer(Width*Height*4*block_size*block_size);
+
+	space = new Uint8Array(Module.wasmMemory.buffer, ptr_space, Width*Height);
+	img = new Uint8Array(Module.wasmMemory.buffer, ptr_img, Width*Height*4*block_size*block_size);
+	for(i=0; i<space.length; i+=4) {
+		space[i] = parseInt(Math.random() + 0.3);
+	}
+
+	let p = _init_world(Width, Height, block_size, ptr_space, ptr_img);
+	init_flag = true;
+	running_flag = false;
+	msg_alert("world created!");
+}
+
+async function start_wold() {
+	clean_alert();
+	if (running_flag) {
+		return;
+	}
+	if (!init_flag) {
+		msg_alert("please init world!");
+	}
+	delay_ms = document.getElementById("delay").value;
+	if (bad_param()) {return;}
+	flag = true;
+	let ctx = document.getElementById("cv").getContext('2d');
+	let img_data = new ImageData(new Uint8ClampedArray(Width*Height*4*block_size*block_size), Width*block_size, Height*block_size);
+	ctx.putImageData(img_data, 0, 0);
+	console.log("start game");
+	try{
+		while (flag) {
+			_next();
+			img_data.data.set(img);
+			ctx.putImageData(img_data, 0, 0);
+			// console.log(space);
+			await sleep(delay_ms);
+		}
+	} catch (e) {
+		console.error(e);
+		console.log("crash!");
+		_clear_world();
+	}
+}
+</script>
+
+</body>
+
