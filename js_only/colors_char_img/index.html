@@ -1,0 +1,183 @@
+
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+<meta content="text/html" charset="UTF-8">
+
+<script type="text/javaScript">
+class PageParams {
+    constructor() {
+        let img_width = document.getElementById("ip_width").value;
+        let img_height = document.getElementById("ip_height").value;
+
+        this.font_size = document.getElementById("ip_font_size").value;
+        this.img_string = document.getElementById("ip_strings").value;
+        this.bk_color = document.getElementById("ip_bk_color").value;
+
+        this.nw = parseInt(img_width / this.font_size);
+        this.nh = parseInt(img_height / this.font_size);
+        this.img_width = this.nw * this.font_size;
+        this.img_height = this.nh * this.font_size;
+        this.ratio = ctxRatio(base_ctx);
+    }
+}
+
+// make high-dpi device happy
+function ctxRatio(ctx) {
+    let backingStore = ctx.backingStorePixelRatio ||
+    ctx.webkitBackingStorePixelRatio ||
+    ctx.mozBackingStorePixelRatio ||
+    ctx.msBackingStorePixelRatio ||
+    ctx.oBackingStorePixelRatio ||
+    ctx.backingStorePixelRatio || 1;
+
+    return (window.devicePixelRatio || 1) / backingStore;
+}
+
+function ratioCanvasFactory(id_, w, h) {
+    let cv = document.createElement("canvas");
+    cv.width = w * pp.ratio;
+    cv.height = h * pp.ratio;
+    cv.setAttribute("id", id_);
+
+    cv.style.cssText = "width: 0; height: 0;";
+    cv.style.width = w + 'px';
+    cv.style.height = h + 'px';
+
+    let ctx = cv.getContext('2d');
+    ctx.scale(pp.ratio, pp.ratio);
+
+    return cv;
+}
+
+function canvasFactory(id_, w, h) {
+    let cv = document.createElement("canvas");
+    cv.width = w;
+    cv.height = h;
+    cv.setAttribute("id", id_);
+    return cv;
+}
+
+function getFillChar(n) {
+    let l = pp.img_string.length;
+    return pp.img_string[n % l];
+}
+
+function img2charImg(cv, img_data) {
+    let ctx = cv.getContext('2d');
+    ctx.font = "bold " + pp.font_size + "px monospace";
+    ctx.fillStyle = pp.bk_color;
+    ctx.fillRect(0, 0, cv.width, cv.height);
+
+    for (let y=0; y<pp.nh; y++) {
+        for (let x=0; x<pp.nw; x++) {
+            let n = x + y*pp.nw;
+            let r = g = b = 128;
+            let a = 255
+            if (img_data[4*n] !== undefined) {
+                r = img_data[4*n];
+                g = img_data[4*n+1];
+                b = img_data[4*n+2];
+                a = img_data[4*n+3];
+            }
+
+            ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + a+ ')';
+            fx = x*pp.font_size;
+            fy = (y+1)*pp.font_size;
+            ctx.fillText(getFillChar(n), fx, fy);
+        }
+    }
+}
+
+function readImg(){
+    var file = this.files[0];
+    if (!/image\/[a-zA-Z]+/.test(file.type)){
+        alert("Please upload a Image!");
+    }
+    var reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = function(){
+        img = new Image();
+        img.onload = preRend;
+        img.src = this.result;
+    }
+}
+
+function preRend() {
+    base_cv.width = pp.nw;
+    base_cv.height = pp.nh;
+    base_ctx.drawImage(img, 0, 0, pp.nw, pp.nh);
+}
+
+function genCharImg() {
+    pp = new PageParams();
+    cv = ratioCanvasFactory("cv1", pp.img_width, pp.img_height);
+    preRend();
+    td.innerHTML = "";
+    td.appendChild(cv);
+
+    let imgData = base_ctx.getImageData(0, 0, pp.nw, pp.nh);
+    img2charImg(cv, imgData.data);
+
+    let new_cv = canvasFactory(null, pp.img_width, pp.img_height);
+    let new_ctx = new_cv.getContext('2d');
+    new_ctx.drawImage(cv, 0, 0, pp.img_width, pp.img_height);
+    new_cv.toBlob(function(blob) {
+        let a = document.getElementById('dl')
+        a.href = URL.createObjectURL(blob);
+        a.download = "colors_char_img.jpg";
+        console.log(a.href);
+    }, "image/jpeg")
+}
+
+var pp = null;
+var base_cv = null;
+var base_ctx = null;
+var td = null;
+var img = null;
+window.onload = function () {
+    base_cv = document.getElementById('cv');
+    base_ctx = base_cv.getContext('2d');
+    td = document.getElementById("testd");
+    document.getElementById("in_img").addEventListener('change', readImg, false);
+
+    pp = new PageParams();
+
+}
+</script>
+
+<base target="_blank">
+<style>
+    canvas{
+        border: 1px dotted #808080; 
+    }
+</style>
+</head>
+
+<body>
+	<p>着色字符画</p>
+	<p><b>说明：图 -> 沙雕着色的字符画</b></p>
+	<ol type="1">
+		<li>上传要转换的图 (source image)</li>
+		<li>填写参数（保持默认也行...）</li>
+		<li>点 "gen image" 生成</li>
+		<li>点 "download result" 下载结果</li>
+	</ol>
+	<HR>
+    <p>source image: <input id="in_img" type="file" accept="image/*"></p>
+    <p>width (px): <input type="text" value=450 id="ip_width"> - 生成图宽(像素)</p>
+    <p>height (px): <input type="text" value=300 id="ip_height"> - 生成图高(像素)</p>
+    <p>font_size (px): <input type="text" value=15 id="ip_font_size"> - 字符尺寸(像素) 注意：生成图的实际尺寸会被裁剪为字符尺寸的整数倍</p>
+    <p>strings: <input type="text" value="给我也整一个" id="ip_strings"> - 生成图用字符串</p>
+    <p>back color: <input type="text" value="#000" id="ip_bk_color"> - 背景色, 用12或者24位色标，或者十进制rgba(r,g,b,a)表示。没做合法检查，乱输出错了俺不管...</p>
+    <ul>
+    <li>色标示例:</li>
+    <li>12位色标: #rgb - #000(纯黑), #fff(纯白), #f00(纯红) </li>
+    <li>24位色标: #rrggbb - #000000(纯黑), #ffffff(纯白), #00ff00(纯绿) </li>
+    </ul>
+    <p><button onclick="genCharImg()"> gen image </button></p>
+    <canvas id="cv" width="300" height="200"></canvas>
+    <HR>
+    <div id="testd"></div>
+    <a id="dl"><button> download result </button></a>
+</body>
