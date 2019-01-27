@@ -98,7 +98,10 @@ function readImg(){
     reader.readAsDataURL(file);
     reader.onload = function(){
         img = new Image();
-        img.onload = preRend;
+        img.onload = function () {
+            setWH(img.width, img.height);
+            preRend();
+        };
         img.src = this.result;
     }
 }
@@ -130,6 +133,27 @@ function genCharImg() {
     }, "image/jpeg")
 }
 
+function setBkColor(color) {
+    document.getElementById("ip_bk_color").value = color;
+}
+
+function setWH(img_w, img_h) {
+    let w = h = 0;
+    if ((img_w < 800) && (img_h < 800)) {
+        w = img_w;
+        h = img_h;
+    } else if (img_w > img_h) {
+        w = 800;
+        h = parseInt(img_h * 800.0/img_w);
+    } else {
+        w = parseInt(img_w * 800.0/img_h);
+        h = 800;
+    }
+    document.getElementById("ip_width").value = w;
+    document.getElementById("ip_height").value = h;
+    pp = new PageParams();
+}
+
 var pp = null;
 var base_cv = null;
 var base_ctx = null;
@@ -140,9 +164,6 @@ window.onload = function () {
     base_ctx = base_cv.getContext('2d');
     td = document.getElementById("testd");
     document.getElementById("in_img").addEventListener('change', readImg, false);
-
-    pp = new PageParams();
-
 }
 </script>
 
@@ -163,16 +184,19 @@ window.onload = function () {
 		<li>点 "gen image" 生成</li>
 		<li>点 "download result" 下载结果</li>
 	</ol>
-	<HR>
+    <HR>
     <p>source image: <input id="in_img" type="file" accept="image/*"></p>
-    <p>width (px): <input type="text" value=450 id="ip_width"> - 生成图宽(像素)</p>
+    <p>font_size (px): <input type="text" value=12 id="ip_font_size"> - 字符尺寸(像素)</p>
+    <p>width (px): <input type="text" value=450 id="ip_width"> - 生成图宽(像素) 注意：生成图的实际尺寸会被裁剪为字符尺寸的整数倍, 下同</p>
     <p>height (px): <input type="text" value=300 id="ip_height"> - 生成图高(像素)</p>
-    <p>font_size (px): <input type="text" value=15 id="ip_font_size"> - 字符尺寸(像素) 注意：生成图的实际尺寸会被裁剪为字符尺寸的整数倍</p>
     <p>strings: <input type="text" value="给我也整一个" id="ip_strings"> - 生成图用字符串</p>
-    <p>back color: <input type="text" value="#000" id="ip_bk_color"> - 背景色, 用12或者24位色标，或者十进制rgba(r,g,b,a)表示。没做合法检查，乱输出错了俺不管...</p>
+    <p>back color: <input type="text" value="#fff" id="ip_bk_color"> - 背景色, 用12或者24位色标，或者十进制rgba(r,g,b,a)表示。没做合法检查，乱输出错了俺不管...
+    <br/><button onclick="setBkColor('#fff')"> white </button>
+    <button onclick="setBkColor('#000')"> black </button>
+    <button onclick="setBkColor('#888')"> gray </button></p>
     <ul>
     <li>色标示例:</li>
-    <li>12位色标: #rgb - #000(纯黑), #fff(纯白), #f00(纯红) </li>
+    <li>12位色标: #rgb - #f00(纯红), #00f(纯蓝) </li>
     <li>24位色标: #rrggbb - #000000(纯黑), #ffffff(纯白), #00ff00(纯绿) </li>
     </ul>
     <p><button onclick="genCharImg()"> gen image </button></p>
