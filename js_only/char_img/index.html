@@ -1,0 +1,240 @@
+
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+<meta content="text/html" charset="UTF-8">
+
+<script type="text/javaScript">
+class PageParams {
+    constructor() {
+        let img_width = document.getElementById("ip_width").value;
+        let img_height = document.getElementById("ip_height").value;
+
+        this.font_size = document.getElementById("ip_font_size").value;
+        this.img_string = document.getElementById("ip_strings").value;
+        this.bk_color = document.getElementById("ip_bk_color").value;
+
+        this.nw = parseInt(img_width / this.font_size);
+        this.nh = parseInt(img_height / this.font_size);
+        this.img_width = this.nw * this.font_size;
+        this.img_height = this.nh * this.font_size;
+        this.ratio = ctxRatio(base_ctx);
+    }
+}
+
+function canvasFactory(id_, w, h) {
+    let cv = document.createElement("canvas");
+    cv.width = w;
+    cv.height = h;
+    cv.setAttribute("id", id_);
+    return cv;
+}
+
+function ratioCanvasFactory(id_, w, h) {
+    let cv = document.createElement("canvas");
+
+    cv.width = w * ratio;
+    cv.height = h * ratio;
+    cv.setAttribute("id", id_);
+
+    cv.style.cssText = "width: 0; height: 0;";
+    cv.style.width = w + 'px';
+    cv.style.height = h + 'px';
+
+    let ctx = cv.getContext('2d');
+    ctx.scale(ratio, ratio);
+
+    return cv;
+}
+
+function img2charImg(cv, img_data) {
+    let ctx = cv.getContext('2d');
+    ctx.font = "bold " + pp.font_size + "px monospace";
+    ctx.fillStyle = pp.bk_color;
+    ctx.fillRect(0, 0, cv.width, cv.height);
+
+    for (let y=0; y<pp.nh; y++) {
+        for (let x=0; x<pp.nw; x++) {
+            let n = x + y*pp.nw;
+            let r = g = b = 128;
+            let a = 255
+            if (img_data[4*n] !== undefined) {
+                r = img_data[4*n];
+                g = img_data[4*n+1];
+                b = img_data[4*n+2];
+                a = img_data[4*n+3];
+            }
+
+            ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + a+ ')';
+            fx = x*pp.font_size;
+            fy = (y+1)*pp.font_size;
+            ctx.fillText(getFillChar(n), fx, fy);
+        }
+    }
+}
+
+
+function genCharImg() {
+    pp = new PageParams();
+    cv = ratioCanvasFactory("cv1", pp.img_width, pp.img_height);
+    preRend();
+    td.innerHTML = "";
+    td.appendChild(cv);
+
+    let imgData = base_ctx.getImageData(0, 0, pp.nw, pp.nh);
+    img2charImg(cv, imgData.data);
+
+    let new_cv = canvasFactory(null, pp.img_width, pp.img_height);
+    let new_ctx = new_cv.getContext('2d');
+    new_ctx.drawImage(cv, 0, 0, pp.img_width, pp.img_height);
+    new_cv.toBlob(function(blob) {
+        let a = document.getElementById('dl')
+        a.href = URL.createObjectURL(blob);
+        a.download = "colors_char_img.jpg";
+        console.log(a.href);
+    }, "image/jpeg")
+}
+
+function setBkColor(color) {
+    document.getElementById("ip_bk_color").value = color;
+}
+//=================================================//
+const h = 10;
+var w = 0;
+// const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890!@#$%^&*()_+=-[]|\\/<>~."
+const CHARS = " x+-|\\/^\"_><,"
+function initPxCharMap() {
+    base_ctx.font = h + "px monospace";
+    w = parseInt(base_ctx.measureText(CHARS[0]).width);
+
+    let rw = w*ratio;
+    let rh = h*ratio;
+    let l = CHARS.length;
+
+    let chars_map = new Int32Array(l * w * h);
+    let t_cv = ratioCanvasFactory(null, l * w, h);
+    let t_ctx = t_cv.getContext('2d');
+    t_ctx.fillStyle = '#fff';
+    t_ctx.fillRect(0, 0, l*rw, rh);
+    t_ctx.fillStyle = '#000';
+    t_ctx.font = h + "px monospace";
+
+    for (let i_char=0; i_char<l; i_char++) {
+        t_ctx.fillText(CHARS[i_char], i_char*w, h-1);
+        let data = t_ctx.getImageData(i_char*rw, 0, rw, rh).data;
+        for (let ih=0; ih<h; ih++) {
+            for (let iw=0; iw<w; iw++) {
+                chars_map[i_char*w*h + ih*w + iw] = (data[(ih*ratio*rw + iw*ratio)*4] === 255)? 1: -1;
+            }
+        }
+    }
+    // td.appendChild(t_cv);
+    return chars_map;
+}
+
+const cap = 128;
+function img2CharIndex() {
+    let data = base_ctx.getImageData(0, 0, base_cv.width, base_cv.height).data;
+    // gen matrix
+    let nw = base_cv.width / w;
+    let nh = base_cv.height / h;
+
+    let cell_l = w * h;
+    let chars_l = CHARS.length;
+    let img_char_list = [];
+    for (let ny=0; ny<nh; ny++) {
+        for (let nx=0; nx<nw; nx++) {
+            // get cell data
+            let data = base_ctx.getImageData(nx*w, ny*h, w, h).data;
+            let img_array = new Int32Array(w * h);
+            for (let i=0; i<cell_l; i++) {
+                img_array[i] = parseInt(0.21*data[i*4] + 0.72*data[i*4+1] + 0.07*data[i*4+2]) - cap;
+            }
+            let max_v = Number.MIN_SAFE_INTEGER;
+            let max_i = 0;
+            for (let i_char=0; i_char<chars_l; i_char++) {
+                let sum = 0;
+                for (let i_px=0; i_px<cell_l; i_px++) {
+                    sum += img_array[i_px] * pxCharMap[i_char*cell_l + i_px];
+                }
+                if (sum > max_v) {
+                    max_v = sum;
+                    max_i = i_char;
+                }
+            }
+            img_char_list.push(CHARS[max_i]);
+        }
+        img_char_list.push("\n");
+    }
+
+    td.innerText = "";
+    let res = document.createElement("pre");
+    res.style["letter-spacing"] = "0.15em";
+    res.innerText = img_char_list.join("");
+    td.appendChild(res);
+}
+
+function readImg(){
+    var file = this.files[0];
+    if (!/image\/[a-zA-Z]+/.test(file.type)){
+        alert("Please upload a Image!");
+    }
+    var reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = function(){
+        img = new Image();
+        img.src = this.result;
+        img.onload = function () {
+            base_cv.width = parseInt( (img.width - (img.width % w)) );
+            base_cv.height = parseInt( (img.height - (img.height % h)) );
+            base_ctx.drawImage(img, 0, 0, base_cv.width, base_cv.height);
+        };
+    }
+}
+
+function getRatio() {
+    let ctx = base_ctx;
+    let backingStore = ctx.backingStorePixelRatio ||
+    ctx.webkitBackingStorePixelRatio ||
+    ctx.mozBackingStorePixelRatio ||
+    ctx.msBackingStorePixelRatio ||
+    ctx.oBackingStorePixelRatio ||
+    ctx.backingStorePixelRatio || 1;
+    return (window.devicePixelRatio || 1) / backingStore;
+}
+
+var ratio;
+var pp = null;
+var base_cv = null;
+var base_ctx = null;
+var td = null;
+var img = null;
+var pxCharMap = null;
+window.onload = function () {
+    base_cv = document.getElementById('cv');
+    base_ctx = base_cv.getContext('2d');
+    td = document.getElementById("testd");
+    document.getElementById("in_img").addEventListener('change', readImg, false);
+    ratio = getRatio();
+    pxCharMap = initPxCharMap();
+}
+</script>
+
+<base target="_blank">
+<style>
+    canvas{
+        border: 1px dotted #808080; 
+    }
+</style>
+</head>
+
+<body>
+    <p style="color:red;">注意： 施工中，目前还不能设置参数</color></p>
+    <p style="color:red;">渲染需要3～10秒。建议图片不要有太多细节，尺寸: 500~800px (大了渲染太慢，小了效果不好)</color></p>
+    <p>source image: <input id="in_img" type="file" accept="image/*"></p>
+    <!--<p>font_size (px): <input type="text" value=8 id="ip_font_size"></p>-->
+    <p><button onclick="img2CharIndex()"> gen image </button></p>
+    <canvas id="cv" width="300" height="200"></canvas>
+    <HR>
+    <div id="testd"></div>
+</body>
