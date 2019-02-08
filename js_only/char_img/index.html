@@ -169,6 +169,7 @@ function img2CharIndex() {
 
     td.innerText = "";
     let res = document.createElement("pre");
+    res.id = "result";
     res.style["letter-spacing"] = "0.15em";
     res.innerText = img_char_list.join("");
     td.appendChild(res);
@@ -201,6 +202,36 @@ function getRatio() {
     ctx.oBackingStorePixelRatio ||
     ctx.backingStorePixelRatio || 1;
     return (window.devicePixelRatio || 1) / backingStore;
+}
+
+function editResult() {
+    let s = document.getElementById("result").innerText;
+    if (!s) {
+        return;
+    }
+    let texta = document.createElement("textarea");
+    texta.rows = Math.round(base_cv.height*1.1/h);
+    texta.cols = Math.round(base_cv.width*1.2/w);
+    texta.style["font-family"] = "monospace";
+    texta.style["letter-spacing"] = "0.15em";
+    texta.value = s;
+
+    td.innerText = "";
+    texta.id = "result";
+    td.appendChild(texta);
+}
+
+function editFin() {
+    let s = document.getElementById("result").value;
+    if (!s) {
+        return;
+    }
+    let pre = document.createElement("pre");
+    pre.style["letter-spacing"] = "0.15em";
+    pre.innerText = s;
+    td.innerText = "";
+    pre.id = "result";
+    td.appendChild(pre);
 }
 
 var ratio;
@@ -236,5 +267,6 @@ window.onload = function () {
     <p><button onclick="img2CharIndex()"> gen image </button></p>
     <canvas id="cv" width="300" height="200"></canvas>
     <HR>
+    <p><button onclick="editResult()"> edit </button> <button onclick="editFin()"> ok </button></p>
     <div id="testd"></div>
 </body>
