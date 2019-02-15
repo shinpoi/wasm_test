@@ -9,7 +9,9 @@
 
 #define PAD_NUM 0
 
-#define CLAMP_UINT8(NUM)  ( (NUM > 255)? 255 : (NUM < 0)? 0 : NUM )
+#define CLAMP_UINT8(NUM)  round( (NUM > 255)? 255 : (NUM < 0)? 0 : NUM )
+#define MAX(a, b)  ((a)>(b)? (a): (b))
+#define MIN(a, b)  ((a)<(b)? (a): (b))
 
 /*---------------------- utils.utils ---------------------*/
 typedef struct wasm_img {
@@ -62,8 +64,8 @@ wasm_img apply_filter2d(wasm_img src, uint8_t* dst_arr, filter2d filter) {
     wasm_img dst = {src.w, src.h, src.len, src.mode, dst_arr};
 
     int i_px = 0; 
-    for (int y=0; y<src.h; y++) {
-        for (int x=0; x<src.w; x+=src.mode) {
+    for (int y=0; y<dst.h; y++) {
+        for (int x=0; x<dst.w; x+=dst.mode) {
             float res = 0;
             // TODO: condition: out of bounds？ or support pad?
             for (int fy=0; fy<filter.h; fy++) {
@@ -72,20 +74,32 @@ wasm_img apply_filter2d(wasm_img src, uint8_t* dst_arr, filter2d filter) {
                 }
             }
             // SET_PX(y, x, dst, (int)round(CLAMP_UINT8(res)));
-            dst.data[i_px] = (int)round(CLAMP_UINT8(res));
+            dst.data[i_px] = CLAMP_UINT8(res);
             i_px += dst.mode;
         }
     }
     return dst;
 }
+wasm_img max_pooling(wasm_img src, uint8_t* dst_arr, int pool_size, int stride) {
+    wasm_img dst = {(src.w+1)/stride, (src.h+1)/stride, (int)((src.w+1)/stride) * (int)((src.h+1)/stride), src.mode, dst_arr};
+    int fl = (pool_size - 1)/2;
 
-wasm_img max_pooling(wasm_img src, uint8_t* dst_arr, int pool_size) {
-    wasm_img dst = {src.w/pool_size, src.h/pool_size, src.len/(pool_size*pool_size), src.mode, dst_arr};
-    // TODO: pooling
+    int i_px = 0; 
+    for (int y=0; y<dst.h; y++) {
+        for (int x=0; x<dst.w; x+=dst.mode) {
+            int max = 0;
+            for (int fy=0; fy<pool_size; fy++) {
+                for (int fx=0; fx<pool_size; fx++) {
+                    max = MAX(max, GET_PX(y*stride + fy-fl, x*stride + fx-fl, src));
+                }
+            }
+            // SET_PX(y, x, dst, (int)round(CLAMP_UINT8(res)));
+            dst.data[i_px] = max;
+            i_px += dst.mode;
+        }
+    }
     return dst;
 }
-
-
 
 
 /*---------------------- test ---------------------*/
@@ -150,8 +164,7 @@ void test_rgba_2_gray() {
 200 210 220       255 255 255
 */
 void test_apply_filter2d() {
-    uint8_t test_data[4*9] = {0,10,20, 100,110,120, 200,210,220};
-    uint8_t dst_data[9] = {0};
+    uint8_t test_data[9] = {0,10,20, 100,110,120, 200,210,220};
     wasm_img test_src = {3, 3, 3*3*MODE_GRAY, MODE_GRAY, test_data};
 
     float test_filter_data[9] = {0,-1,0, -1,4,-1, 0,-1,0};
@@ -160,10 +173,27 @@ void test_apply_filter2d() {
     uint8_t except_dst_data[9] = {0,0,0, 90,0,130, 255,255,255};
     wasm_img except_dst = {3, 3, 3*3, MODE_GRAY, except_dst_data};
 
+    uint8_t dst_data[9] = {0};
     wasm_img test_dst = apply_filter2d(test_src, dst_data, lapcian);
     wasm_img_eq(except_dst, test_dst, "test_apply_filter2d");
 }
 
+/*
+0   10  20        110 120
+100 110 120  -->  210 220
+200 210 220
+*/
+void test_max_pooling() {
+    uint8_t test_data[9] = {0,10,20, 100,110,120, 200,210,220};
+    wasm_img test_src = {3, 3, 3*3*MODE_GRAY, MODE_GRAY, test_data};
+
+    uint8_t except_dst_data[4] = {110,120, 210,220};
+    wasm_img except_dst = {2, 2, 2*2, MODE_GRAY, except_dst_data};
+
+    uint8_t dst_data[4] = {0};
+    wasm_img test_dst = max_pooling(test_src, dst_data, 3, 2);
+    wasm_img_eq(except_dst, test_dst, "test_max_pooling");
+}
 
 int main(int argc, char* argv[]) {
     printf("compile success!\n");
@@ -171,6 +201,7 @@ int main(int argc, char* argv[]) {
     test_macros();
     test_rgba_2_gray();
     test_apply_filter2d();
+    test_max_pooling();
 
     return 0;
 }
