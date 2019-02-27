@@ -15,4 +15,4 @@
 *.gif
 *.bmp
 
-**/test/*
+.vscode
