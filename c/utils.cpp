@@ -42,7 +42,7 @@ wasm_img apply_filter2d(wasm_img src, uint8_t* dst_arr, filter2d filter) {
     return apply_filter2d(src, dst_arr, filter, src.mode, 0);
 }
 
-wasm_img max_pooling(wasm_img src, uint8_t* dst_arr, int pool_size, int stride) {
+wasm_img max_pooling(wasm_img src, uint8_t* dst_arr, int pool_size, int stride, int channel) {
     wasm_img dst = {(src.w+1)/stride, (src.h+1)/stride, (int)((src.w+1)/stride) * (int)((src.h+1)/stride), src.mode, dst_arr};
     int fl = (pool_size - 1)/2;
 
@@ -52,7 +52,7 @@ wasm_img max_pooling(wasm_img src, uint8_t* dst_arr, int pool_size, int stride) 
             int max = 0;
             for (int fy=0; fy<pool_size; fy++) {
                 for (int fx=0; fx<pool_size; fx++) {
-                    max = MAX(max, GET_PX(y*stride + fy-fl, x*stride + fx-fl, src));
+                    max = MAX(max, GET_PX(y*stride + fy-fl, x*stride + fx-fl, src, channel));
                 }
             }
             // SET_PX(y, x, dst, (int)round(CLAMP_UINT8(res)));
@@ -61,4 +61,8 @@ wasm_img max_pooling(wasm_img src, uint8_t* dst_arr, int pool_size, int stride) 
         }
     }
     return dst;
+}
+
+wasm_img max_pooling(wasm_img src, uint8_t* dst_arr, int pool_size, int stride) {
+    return max_pooling(src, dst_arr, pool_size, stride, 0);
 }

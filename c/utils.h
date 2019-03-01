@@ -50,9 +50,16 @@ static inline void SET_PX(int y, int x, wasm_img img, uint8_t value) {
 }
 
 /*---------------------- main func ---------------------*/
+
+/* return 1-d grayscale array by rgba image */
 wasm_img rgba_2_gray(wasm_img src, uint8_t* dst_arr);
+
+/* return 1-d array by rgba(specific channcel) image */
+/* return 1-d array by grayscale/rgba(R channcel) image */
 wasm_img apply_filter2d(wasm_img src, uint8_t* dst_arr, filter2d filter, int mode, int channel);
 wasm_img apply_filter2d(wasm_img src, uint8_t* dst_arr, filter2d filter);
+
+/* return 1-d array by rgba(specific channcel) image */
+/* return 1-d array by grayscale/rgba(R channcel) image */
+wasm_img max_pooling(wasm_img src, uint8_t* dst_arr, int pool_size, int stride, int channel);
 wasm_img max_pooling(wasm_img src, uint8_t* dst_arr, int pool_size, int stride);
-
-
