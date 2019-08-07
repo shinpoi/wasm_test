@@ -15,37 +15,6 @@ void fr_buffer(uint8_t* p) {
     free(p);
 }
 
-/* init ciper to encrype image */
-void init_ciper(uint8_t *key, int key_size, uint8_t *ciper) {
-    uint8_t S[256] = {0}; 
-    uint8_t RCi = 0;
-    uint8_t RCj = 0;
-
-    // RC4 - init S
-    uint8_t j = 0;
-    for (int i=0; i< 256; i++) {
-        S[i] = i;
-    }
-    for (int i=0; i< 256; i++) {
-        j = (j + S[i] + key[i % key_size]) % 256;
-        uint8_t t = S[i];
-        S[i] = S[j];
-        S[j] = t;
-    }
-
-    // RC4 - next
-    for (int i=0; i < Ciper_W; i++) {
-        for (int j=0; j < Ciper_H; j++) {
-            RCi = (RCi + 1) % 256;
-            RCj = (RCj + S[RCi]) % 256;
-            uint8_t t = S[RCi];
-            S[RCi] = S[RCj];
-            S[RCj] = t;
-            ciper[i*Ciper_W + j] = S[(S[RCi] + S[RCj]) % 256];
-        }
-    }
-}
-
 /* 
 ciper: Ciper_W * Ciper_H array;  ciper[before_i] = after_i
 mode: encrypt:1, decrypt: -1
