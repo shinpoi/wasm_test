@@ -33,9 +33,12 @@
 
 <body>
 	<!-- Info -->
-	<h3>简易图像加密器 v0.3.0 / <a href="https://github.com/shinpoi/wasm_test/blob/master/c/img_xor_encrypt_v3/img_xor_encrypt.c">Code</a></h3>
-	<p>基于RC4的流式图像简易加密工具。<br/>
-	<span style="color:red">本工具仅供好玩，请勿用于实际生产环境，出安全问题了俺不管：）</span></p>
+	<h3>简易图像<del>粉碎</del>加密器 v0.4.0 / <a href="https://github.com/shinpoi/wasm_test/blob/master/c/img_xor_encrypt/img_xor_encrypt.c">Code</a></h3>
+	<p>根据密码把图像打散为100 x 100个碎片的小工具。打散顺序基于RC4生成。<br/>
+	加密图被二压 or 缩放后仍不影响使用 ... 理论上</p>
+	</p><span style="color:red; font-size: 0.8em;">
+	P.S.1 本工具仅供好玩，请勿用于实际生产环境，出安全问题了俺不管：）<br/>
+	P.S.2 加密时会将原图的尺寸缩放到100的整数倍，图太小的话长宽比可能会有显著变化</span></p>
 
 	<p><b>说明：</b></p>
 	<ol type="1">
@@ -105,17 +108,17 @@ function xor_mask(mode) {
 	// Draw img to canvas
 	let src_cv = document.createElement('canvas');
 	src_cv.id = "cv";
-	src_cv.width = src_img.width;
-	src_cv.height = src_img.height;
+	src_cv.width = src_img.width - src_img.width % 100;
+	src_cv.height = src_img.height - src_img.height % 100;
 	let src_ctx = src_cv.getContext('2d');
-	src_ctx.drawImage(src_img, 0, 0);
+	src_ctx.drawImage(src_img, 0, 0, src_cv.width, src_cv.height);
 
 	// test: get key:
 	let key = document.getElementById("key").value;
 	let en = new TextEncoder('utf-8');
 	let k_arr = en.encode(key)
 
-	let len_src = src_img.width * src_img.height * 4;
+	let len_src = src_cv.width * src_cv.height * 4;
 	let len_key = k_arr.length
 	console.timeEnd('Init data');
 
@@ -135,7 +138,7 @@ function xor_mask(mode) {
 
         // Write img-data to memory
 		console.time('Write data to wasm memory');
-        let data_src = src_ctx.getImageData(0, 0, src_img.width, src_img.height);
+        let data_src = src_ctx.getImageData(0, 0, src_cv.width, src_cv.height);
         let buffer_src = new Uint8Array(wasmMemory.buffer, p_src, len_src);
         buffer_src.set(data_src.data);
 
@@ -146,14 +149,15 @@ function xor_mask(mode) {
         
         // Do wasm
         console.time('WASM');
-        _mask(p_key, len_key, p_src, src_img.height, src_img.width, mode);
+        _mask(p_key, len_key, p_src, src_cv.height, src_cv.width, mode);
         console.timeEnd('WASM');
         
         // Draw image
         console.time('Draw image');
         data_src.data.set(buffer_src);
-        src_ctx.clearRect(0, 0, src_img.width, src_img.height);
+        src_ctx.clearRect(0, 0, src_cv.width, src_cv.height);
         src_ctx.putImageData(data_src, 0, 0);
+        document.getElementById("res_img").innerHTML = "";
 		document.getElementById("res_img").appendChild(src_cv);
         // let dataURL = src_cv.toDataURL('image/png');
         // document.getElementById('res_img').src = dataURL;
